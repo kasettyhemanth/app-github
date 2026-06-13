@@ -1,0 +1,87 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build and test
+        run: ./mvnw clean verify
+
+      - name: Upload application jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: spring-app
+          path: target/*.jar
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download application jar
+        uses: actions/download-artifact@v4
+        with:
+          name: spring-app
+          path: artifact
+
+      - name: Prepare SSH key
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+
+      - name: Copy bootstrap and deploy assets
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          source: "artifact/*.jar,scripts/ec2-bootstrap.sh,scripts/ec2-deploy.sh"
+          target: "/tmp/${{ github.event.repository.name }}"
+          strip_components: 0
+
+      - name: Bootstrap VM and deploy
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_NAME: app
+          APP_USER: springapp
+          APP_DIR: /opt/app
+          SERVICE_NAME: app
+          ARTIFACT_NAME: app.jar
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          envs: APP_NAME,APP_USER,APP_DIR,SERVICE_NAME,ARTIFACT_NAME
+          script: |
+            set -euo pipefail
+            BASE_DIR="/tmp/${{ github.event.repository.name }}"
+            chmod +x "${BASE_DIR}/scripts/ec2-bootstrap.sh" "${BASE_DIR}/scripts/ec2-deploy.sh"
+            export SOURCE_JAR="$(find "${BASE_DIR}/artifact" -maxdepth 1 -name '*.jar' | head -n 1)"
+            "${BASE_DIR}/scripts/ec2-bootstrap.sh"
+            "${BASE_DIR}/scripts/ec2-deploy.sh"
