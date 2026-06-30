@@ -1,0 +1,83 @@
+pipeline{
+    agent any
+
+    environment {
+        sonarToken = credentials('sonar-token')
+        sonarHost = 'https://sonarcloud.io'
+    }
+    tools{
+        maven 'maven-3.9.16'
+    }
+    stages{
+        stage("git clone"){
+            steps{
+                git branch: 'main', credentialsId: 'GitHub_Credentials', url: 'https://github.com/kasettyhemanth/app-github.git'
+            }
+        }
+        stage("maven build"){
+            steps{
+                sh 'mvn clean package'
+            }
+        }
+        stage("sonar scan"){
+            steps{
+                withSonarQubeEnv('sonarcloud'){
+                    sh 'mvn sonar:sonar -Dsonar.projectKey=kasettyhemanth_app-github -Dsonar.organization=kasettyhemanth-github -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$sonarToken'
+                }
+            }
+        }
+        stage("quality gate"){
+            steps{
+                timeout(time: 1, unit: 'HOURS'){
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }stage("Deploy the Sonartype Nexus"){
+            steps{
+                sh "mvn clean deploy"
+            }
+        }
+        stage("Deploy the tomcat"){
+            steps{
+                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tomcatserver_credentails', path: '', url: 'http://44.211.50.250:8080/')], contextPath: null, war: 'target/student-reg-webapp.war'
+            }
+        }
+    }
+    post{
+        always{
+            script{
+                def buildStatus = currentBuild.result ?: 'SUCCESS'
+                sendEmail(buildStatus)
+                slackSend channel: '#lic-app-team', message: "Build ${buildStatus}. Please check the console output at ${env.BUILD_URL}"
+            }
+        }
+    }
+}
+def sendEmail(String buildStatus) {
+    String subject = "${env.JOB_NAME} - Build #${env.BUILD_NUMBER} - ${buildStatus}"
+    String body = """<!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body { font-family: Arial, sans-serif; }
+                            .header { background-color: #f4f5f7; padding: 10px; border-bottom: 2px solid #ccc; }
+                            .success { color: green; font-weight: bold; }
+                            .failure { color: red; font-weight: bold; }
+                            .content { margin-top: 15px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <h2>Jenkins Build Report</h2>
+                        </div>
+                        <div class="content">
+                            <p><strong>Job:</strong> ${env.JOB_NAME}</p>
+                            <p><strong>Build Number:</strong> #${env.BUILD_NUMBER}</p>
+                            <p><strong>Status:</strong> <span class="${buildStatus == 'SUCCESS' ? 'success' : 'failure'}">${buildStatus}</span></p>
+                            <p>Check the full console output <a href="${env.BUILD_URL}">here</a>.</p>
+                        </div>
+                    </body>
+                    </html>"""
+    String recipient = 'kasettyhemanth2001@gmail.com'
+    emailext body: body, subject: subject, to: recipient, mimeType: 'text/html'
+}          
