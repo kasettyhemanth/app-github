@@ -32,15 +32,15 @@
 	</properties>
 
     <distributionManagement>
-      <repository>
-         <id>nexus</id>
-         <url>http://172.31.24.159:8081/repository/App-github-sample//</url>
-      </repository>
+    <repository>
+        <id>nexus</id>
+        <url>http://172.31.24.159:8081/repository/App-github-sample1-release/</url>
+    </repository>
 
-      <snapshotRepository>
-         <id>nexus</id>
-         <url>http://172.31.24.159:8081/repository/App-github-sample1//</url>
-      </snapshotRepository>
+    <snapshotRepository>
+        <id>nexus</id>
+        <url>http://172.31.24.159:8081/repository/App-github-sample1-snapshot/</url>
+    </snapshotRepository>
     </distributionManagement>
 
 	<dependencies>
