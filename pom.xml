@@ -35,12 +35,12 @@
     <distributionManagement>
     <repository>
         <id>nexus</id>
-        <url>http://52.54.21.111:8081/repository/app-github-release//</url>
+        <url>http://52.54.21.111:8081/repository/app-github-release/</url>
     </repository>
 
     <snapshotRepository>
         <id>nexus</id>
-        <url>http://52.54.21.111:8081/repository/app-github-snapshot//</url>
+        <url>http://52.54.21.111:8081/repository/app-github-snapshot/</url>
     </snapshotRepository>
     </distributionManagement>
 

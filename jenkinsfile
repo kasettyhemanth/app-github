@@ -2,8 +2,8 @@ pipeline{
     agent any
 
     environment {
-        sonarToken = credentials('sonar-token')
-        sonarHost = 'https://sonarcloud.io'
+        sonarToken = credentials('Sonarqubetoken_jenkins')
+        sonarHost = "http://52.55.169.165:9000/"
     }
     tools{
         maven 'maven-3.9.16'
@@ -14,7 +14,7 @@ pipeline{
                 git branch: 'main', credentialsId: 'GitHub_Credentials', url: 'https://github.com/kasettyhemanth/app-github.git'
             }
         }
-        stage("maven build"){
+        stage(" Build Application"){
             steps{
                 sh 'mvn clean package'
             }
@@ -26,7 +26,7 @@ pipeline{
                 }
             }
         }
-        stage("quality gate"){
+        stage("wait for sonarqube quality gate"){
             steps{
                 timeout(time: 1, unit: 'HOURS'){
                     waitForQualityGate abortPipeline: true
@@ -39,7 +39,7 @@ pipeline{
         }
         stage("Deploy the tomcat"){
             steps{
-                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tomcatserver_credentails', path: '', url: 'http://44.211.50.250:8080/')], contextPath: null, war: 'target/student-reg-webapp.war'
+                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'Tomcatserver_credentials', path: '', url: 'http://44.211.50.250:8080/')], contextPath: null, war: 'target/app-github-1.0.1-SNAPSHOT.war '
             }
         }
     }
